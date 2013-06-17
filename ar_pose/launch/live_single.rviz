@@ -1,152 +1,45 @@
-Panels:
-  - Class: rviz/Displays
-    Help Height: 78
-    Name: Displays
-    Property Tree Widget:
-      Expanded:
-        - /Global Options1
-        - /Status1
-        - /Camera1
-      Splitter Ratio: 0.5
-    Tree Height: 457
-  - Class: rviz/Selection
-    Name: Selection
-  - Class: rviz/Tool Properties
-    Expanded:
-      - /2D Pose Estimate1
-      - /2D Nav Goal1
-      - /Publish Point1
-    Name: Tool Properties
-    Splitter Ratio: 0.588679
-  - Class: rviz/Views
-    Expanded:
-      - /Current View1
-    Name: Views
-    Splitter Ratio: 0.5
-  - Class: rviz/Time
-    Experimental: false
-    Name: Time
-    SyncMode: 0
-    SyncSource: Camera
-Visualization Manager:
-  Class: ""
-  Displays:
-    - Alpha: 0.5
-      Cell Size: 1
-      Class: rviz/Grid
-      Color: 160; 160; 164
-      Enabled: true
-      Line Style:
-        Line Width: 0.03
-        Value: Lines
-      Name: Grid
-      Normal Cell Count: 0
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Plane: XY
-      Plane Cell Count: 10
-      Reference Frame: <Fixed Frame>
-      Value: true
-    - Class: rviz/TF
-      Enabled: true
-      Frame Timeout: 15
-      Frames:
-        /ar_marker:
-          Value: true
-        /camera:
-          Value: true
-        /world:
-          Value: true
-        All Enabled: true
-      Marker Scale: 1
-      Name: TF
-      Show Arrows: true
-      Show Axes: true
-      Show Names: true
-      Tree:
-        /world:
-          /camera:
-            /ar_marker:
-              {}
-      Update Interval: 0
-      Value: true
-    - Class: rviz/Camera
-      Enabled: true
-      Image Rendering: background and overlay
-      Image Topic: /camera/image_rect
-      Name: Camera
-      Overlay Alpha: 0.5
-      Queue Size: 2
-      Transport Hint: raw
-      Value: true
-      Visibility:
-        Grid: true
-        Marker: true
-        TF: true
-        Value: true
-      Zoom Factor: 1
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: visualization_marker
-      Name: Marker
-      Namespaces:
-        basic_shapes: true
-      Queue Size: 100
-      Value: true
-  Enabled: true
-  Global Options:
-    Background Color: 48; 48; 48
-    Fixed Frame: /world
-  Name: root
-  Tools:
-    - Class: rviz/Interact
-      Hide Inactive Objects: true
-    - Class: rviz/MoveCamera
-    - Class: rviz/Select
-    - Class: rviz/FocusCamera
-    - Class: rviz/Measure
-    - Class: rviz/SetInitialPose
-      Topic: /initialpose
-    - Class: rviz/SetGoal
-      Topic: /move_base_simple/goal
-    - Class: rviz/PublishPoint
-      Single click: true
-      Topic: /clicked_point
-  Value: true
-  Views:
-    Current:
-      Class: rviz/Orbit
-      Distance: 4.88162
-      Focal Point:
-        X: 0.89972
-        Y: 0.0281831
-        Z: -0.0336405
-      Name: Current View
-      Near Clip Distance: 0.01
-      Pitch: 0.530398
-      Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
-      Yaw: 2.48858
-    Saved: ~
-Window Geometry:
-  Camera:
-    collapsed: false
-  Displays:
-    collapsed: false
-  Height: 990
-  Hide Left Dock: false
-  Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000013c00000330fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000002800000258000000dd00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000c00430061006d0065007200610100000286000000d20000001600ffffff000000010000010f00000330fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000002800000330000000b000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004e00000003efc0100000002fb0000000800540069006d00650100000000000004e0000002f600fffffffb0000000800540069006d00650100000000000004500000000000000000000002890000033000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
-  Selection:
-    collapsed: false
-  Time:
-    collapsed: false
-  Tool Properties:
-    collapsed: false
-  Views:
-    collapsed: false
-  Width: 1264
-  X: 60
-  Y: 60
+Background\ ColorB=0
+Background\ ColorG=0
+Background\ ColorR=0
+Camera\ Config=0.294797 2.4958 6.48342 0 -1.90735e-06 1.90735e-06
+Camera\ Type=rviz::OrbitViewController
+Camera.Enabled=1
+Camera.Image\ Rendering=background & overlay
+Camera.Image\ Topic=/rgb/image_rect_color
+Camera.Overlay\ Alpha=0.5
+Camera.Queue\ Size=2
+Camera.Transport\ Hint=raw
+Camera.Zoom\ Factor=1
+Fixed\ Frame=/camera_rgb_optical_frame
+Property\ Grid\ Splitter=485,78
+Property\ Grid\ State=expanded=.Global Options,Camera.Enabled,Camera.Status,TF.Enabled,TF.Status;splitterratio=0.5
+QMainWindow=000000ff00000000fd000000030000000000000259000003c6fc0200000002fb000000100044006900730070006c006100790073010000001d00000285000000ee00fffffffb0000000c00430061006d00650072006101000002a80000013b0000001900ffffff0000000100000131000003c6fc0200000003fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073010000001d0000011b0000006700fffffffb0000000a00560069006500770073010000013e00000184000000bb00fffffffb0000001200530065006c0065006300740069006f006e01000002c80000011b0000006700ffffff00000003000005200000003efc0100000001fb0000000800540069006d0065010000000000000520000002bf00ffffff0000018a000003c600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+TF.All\ Enabled=1
+TF.Enabled=1
+TF.Frame\ Timeout=15
+TF.Marker\ Scale=1
+TF.Show\ Arrows=1
+TF.Show\ Axes=1
+TF.Show\ Names=1
+TF.Update\ Interval=0
+Target\ Frame=<Fixed Frame>
+Tool\ 2D\ Nav\ GoalTopic=/move_base_simple/goal
+Tool\ 2D\ Pose\ EstimateTopic=initialpose
+[Display0]
+ClassName=rviz::CameraDisplay
+Name=Camera
+[Display1]
+ClassName=rviz::TFDisplay
+Name=TF
+[TF.Frames.]
+camera_depth_frame.Enabled=1
+camera_depth_optical_frame.Enabled=1
+camera_link.Enabled=1
+camera_rgb_frame.Enabled=1
+camera_rgb_optical_frame.Enabled=1
+world.Enabled=1
+[Window]
+Height=1099
+Width=1328
+X=-21
+Y=0
