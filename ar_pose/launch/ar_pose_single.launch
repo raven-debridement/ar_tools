@@ -6,17 +6,17 @@
   <node ns="rgb" pkg="image_proc" type="image_proc" name="image_proc"/>
   <node pkg="openni_camera" type="openni_node" name="openni_camera"
     output="screen">
-    <param name="depth_registration" type="bool" value="false"/>
-    <param name="rgb_frame_id" type="string" value="/camera_rgb_optical_frame"/>
+    <param name="depth_registration" type="bool" value="true"/>
+    <param name="rgb_frame_id" type="string" value="camera_rgb_optical_frame"/>
     <param name="depth_frame_id" type="string" value="camera_depth_optical_frame"/>
   </node>
   <node name="ar_pose" pkg="ar_pose" type="ar_single" respawn="false"
     output="screen">
     <remap from="camera/camera_info" to="rgb/camera_info" />
-    <remap from="camera/image_raw" to="rgb/image_raw" />
+    <remap from="camera/image_raw" to="rgb/image_rect" />
     <param name="marker_pattern" type="string"
       value="$(find ar_pose)/data/4x4/4x4_1.patt"/>
-    <param name="marker_width" type="double" value="129.54"/>
+    <param name="marker_width" type="double" value="41.402"/>
     <param name="marker_center_x" type="double" value="0.0"/>
     <param name="marker_center_y" type="double" value="0.0"/>
     <param name="threshold" type="int" value="100"/>
