@@ -269,7 +269,14 @@ namespace ar_pose
 
       // **** publish the marker
 
-		  ar_pose_marker_.header.frame_id = image_msg->header.frame_id;
+      std::string frame_id = image_msg->header.frame_id;
+                  if (markerFrame_.compare("ar_marker_r") == 0) {
+                    //frame_id = "wide_stereo_gazebo_right_stereo_optical_frame";
+                    pos[2] += -0.001704;
+                    pos[0] += +0.0899971;
+                    pos[1] += -0.00012;
+                  }
+		  ar_pose_marker_.header.frame_id = frame_id;
 		  ar_pose_marker_.header.stamp    = image_msg->header.stamp;
 		  ar_pose_marker_.id              = marker_info->id;
 
@@ -305,10 +312,10 @@ namespace ar_pose
       {
         if(reverse_transform_)
         {
-          tf::StampedTransform markerToCam (t.inverse(), image_msg->header.stamp, markerFrame_.c_str(), image_msg->header.frame_id);
+          tf::StampedTransform markerToCam (t.inverse(), image_msg->header.stamp, markerFrame_.c_str(), frame_id);
           broadcaster_.sendTransform(markerToCam);
         } else {
-          tf::StampedTransform camToMarker (t, image_msg->header.stamp, image_msg->header.frame_id, markerFrame_.c_str());
+          tf::StampedTransform camToMarker (t, image_msg->header.stamp, frame_id, markerFrame_.c_str());
           broadcaster_.sendTransform(camToMarker);
         }
       }
@@ -331,7 +338,7 @@ namespace ar_pose
       
         tf::poseTFToMsg(markerPose, rvizMarker_.pose);
 
-			  rvizMarker_.header.frame_id = image_msg->header.frame_id;
+			  rvizMarker_.header.frame_id = frame_id;
 			  rvizMarker_.header.stamp = image_msg->header.stamp;
 			  rvizMarker_.id = 1;
 

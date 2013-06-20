@@ -1,0 +1,35 @@
+<launch>
+  <node pkg="rviz" type="rviz" name="rviz" 
+    args="-d $(find ar_pose)/launch/live_single_pr2.vcg">
+  </node>
+  <node name="ar_pose_l" pkg="ar_pose" type="ar_single" respawn="false"
+    output="screen">
+    <remap from="camera/camera_info" to="wide_stereo/left/camera_info" />
+    <remap from="camera/image_raw" to="wide_stereo/left/image_rect_color" />
+    <param name="marker_pattern" type="string"
+      value="$(find ar_pose)/data/4x4/4x4_84.patt"/>
+    <param name="marker_width" type="double" value="60.325"/>
+    <param name="marker_center_x" type="double" value="0.0"/>
+    <param name="marker_center_y" type="double" value="0.0"/>
+    <param name="threshold" type="int" value="100"/>
+    <param name="use_history" type="bool" value="true"/>
+    <param name="publish_visual_marker" type="bool" value="true"/>
+  </node>
+  <node name="ar_pose_r" pkg="ar_pose" type="ar_single" respawn="false"
+    output="screen">
+    <remap from="camera/camera_info" to="wide_stereo/right/camera_info" />
+    <remap from="camera/image_raw" to="wide_stereo/right/image_rect" />
+    <remap from="ar_pose_marker" to="ar_pose_marker_r" />
+    <remap from="visualization_marker" to="visualization_marker_r" />
+    <param name="marker_pattern" type="string"
+      value="$(find ar_pose)/data/4x4/4x4_84.patt"/>
+    <param name="marker_frame" type="string" value="ar_marker_r" />
+    <param name="marker_width" type="double" value="60.325"/>
+    <param name="marker_center_x" type="double" value="0.0"/>
+    <param name="marker_center_y" type="double" value="0.0"/>
+    <param name="threshold" type="int" value="100"/>
+    <param name="use_history" type="bool" value="true"/>
+  </node>
+  <node name="ar_stereo_node" pkg="ar_pose" type="pose_estimator" output="screen">
+  </node>
+</launch>

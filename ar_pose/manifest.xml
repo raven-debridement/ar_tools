@@ -7,9 +7,15 @@
   <review status="experimental" notes=""/>
   <url>http://www.ros.org/wiki/ar_pose</url>
   <rosdep name="glut"/>
+  <depend package="gazebo" />
+  <export>
+    <gazebo gazebo_media_path="${prefix}" />
+  </export>
   <depend package="visualization_msgs"/>
   <depend package="artoolkit"/>
   <depend package="geometry_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="image_geometry"/>
   <depend package="tf"/>
   <depend package="resource_retriever"/>
   <depend package="opencv2"/>
