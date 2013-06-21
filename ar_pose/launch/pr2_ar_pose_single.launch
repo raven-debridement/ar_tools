@@ -30,6 +30,6 @@
     <param name="threshold" type="int" value="100"/>
     <param name="use_history" type="bool" value="true"/>
   </node>
-  <node name="ar_stereo_node" pkg="ar_pose" type="pose_estimator" output="screen">
+  <node name="ar_stereo_node" pkg="ar_pose" type="single_pose_estimator" output="screen">
   </node>
 </launch>

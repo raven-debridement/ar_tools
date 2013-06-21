@@ -108,6 +108,7 @@ namespace ar_pose
     bool getCamInfo_;
     bool publishTf_;
     bool publishVisualMarkers_;
+    bool isRightCamera_;
     CvSize sz_;
 #if ROS_VERSION_MINIMUM(1, 9, 0)
     cv_bridge::CvImagePtr capture_;

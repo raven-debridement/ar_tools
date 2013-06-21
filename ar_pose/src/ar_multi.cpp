@@ -46,6 +46,9 @@ namespace ar_pose
 
     // **** get parameters
 
+    if (!n_param.getParam ("is_right_camera", isRightCamera_))
+      isRightCamera_ = false;
+
     if (!n_param.getParam ("publish_tf", publishTf_))
       publishTf_ = true;
     ROS_INFO ("\tPublish transforms: %d", publishTf_);
@@ -235,6 +238,12 @@ namespace ar_pose
       pos[1] = arPos[1] * AR_TO_ROS;
       pos[2] = arPos[2] * AR_TO_ROS;
 
+      if (isRightCamera_) {
+        pos[2] += -0.001704;
+        pos[0] += +0.0899971;
+        pos[1] += -0.00012;
+      }
+
       quat[0] = -arQuat[0];
       quat[1] = -arQuat[1];
       quat[2] = -arQuat[2];
@@ -278,6 +287,10 @@ namespace ar_pose
 
       if (publishTf_)
       {
+        std::string name = object[i].name;
+        if (isRightCamera_) {
+          name += "_r";
+        }
         tf::StampedTransform camToMarker (t, image_msg->header.stamp, image_msg->header.frame_id, object[i].name);
         broadcaster_.sendTransform(camToMarker);
       }
