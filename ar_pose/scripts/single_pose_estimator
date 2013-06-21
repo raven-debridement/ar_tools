@@ -1,0 +1,174 @@
+#!/usr/bin/env python
+
+"""
+Author: Anna Lee
+Modified from Jonathan Kim's code.
+"""
+
+import rospy
+import roslib; roslib.load_manifest('ar_pose')
+import tf
+import image_geometry
+from ar_pose.msg import ARMarker
+from ar_pose.msg import ARMarkers
+from geometry_msgs.msg import *
+from sensor_msgs.msg import *
+
+# The longest time to wait before broadcasting a marker, even if it is not stereo
+MS = 1000000 # in ns
+LONGEST_STEREO_WAIT = 500 * MS # in ns 
+
+ids_to_joints = {1: "left gripper",
+		 2: "coke can"}
+
+def position_avg(p1, p2):
+    return Point((p1.x+p2.x)/2.0, (p1.y+p2.y)/2.0, (p1.z+p2.z)/2.0)
+
+def quaternion_avg(q1, q2):
+    return Quaternion((q1.x+q2.x)/2.0, (q1.y+q2.y)/2.0, (q1.z+q2.z)/2.0,\
+            (q1.w+q2.w)/2.0)
+
+def pos_tuple(p1):
+    return (p1.x, p1.y, p1.z)
+
+def ori_tuple(q1):
+    return (q1.x, q1.y, q1.z, q1.w)
+
+# tuple
+def pos_diff(p1, p2):
+    return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 + (p1[2] - p2[2])**2)**0.5
+
+# tuple
+def ori_diff(o1, o2):
+    return ((o1[0] - o2[0])**2 + (o1[1] - o2[1])**2 + (o1[2] - o2[2])**2\
+            + (o1[3] - o2[3])**2)**0.5
+
+class PoseEstimator:
+    def __init__(self, output_frame, camera_frame):
+        self.camera_info = {}
+	self.transform_listener = tf.TransformListener()
+        self.broadcaster = tf.TransformBroadcaster()
+	self.right_poses_dict = {}
+	self.left_poses_dict = {}
+	self.output_frame = output_frame
+	self.camera_frame = camera_frame
+        self.last_stereo_marker_time = rospy.Time.now()
+        self.poses = []
+
+	self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarker, self.left_handle_markers)
+        self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarker, self.right_handle_markers)
+        self.left_camera_info_subscriber = rospy.Subscriber("wide_stereo/left/image_rect", Image, self.handle_camera_info('left'));
+        self.right_camera_info_subscriber = rospy.Subscriber("wide_stereo/right/image_rect", Image, self.handle_camera_info('right'));
+
+    def handle_camera_info(self, camera):
+        def handler(camera_info):
+            self.camera_info[camera] = camera_info
+        return handler
+            
+    # called when a list of AR markers is published for the right camera
+    # stores poses in a dictionary that maps from id number to pose
+    def right_handle_markers(self, marker):
+        pose = PoseStamped()
+        pose.header.stamp = marker.header.stamp
+        pose.header.frame_id = marker.header.frame_id
+        pose.pose = marker.pose.pose
+	self.right_poses_dict[marker.id] = pose
+	self.handle_both()
+
+    # called when a list of AR markers is published for the left camera
+    # stores poses in a dictionary that maps from id number to pose
+    def left_handle_markers(self, marker):
+        pose = PoseStamped()
+        pose.header.stamp = marker.header.stamp
+        pose.header.frame_id = marker.header.frame_id
+        pose.pose = marker.pose.pose
+	self.left_poses_dict[marker.id] = pose
+	self.handle_both()
+
+    # waits until there are values in both right_poses_dict and left_poses_dict
+    # calls helper functions to calculate more accurate poses, and publishes those poses
+    # then clears the dictionaries
+    def handle_both(self):
+	if self.right_poses_dict and self.left_poses_dict:
+	    self.calculate_poses()
+	    self.publish()
+	    self.left_poses_dict = {}
+	    self.right_poses_dict = {}	    	    
+            self.last_stereo_marker_time = rospy.Time.now()
+        elif ((rospy.Time.now().secs - self.last_stereo_marker_time.secs > 1) or
+              (rospy.Time.now().nsecs - self.last_stereo_marker_time.nsecs) > LONGEST_STEREO_WAIT):
+            self.calculate_nonstereo_pose()
+            self.publish()
+	    self.left_poses_dict = {}
+	    self.right_poses_dict = {}
+            self.last_stereo_marker_time = rospy.Time.now()
+
+    def calculate_nonstereo_pose(self):
+        poses = []
+        for pose in self.left_poses_dict.values():
+            poses.append(pose)
+        for pose in self.right_poses_dict.values():
+            poses.append(pose)
+        self.poses = poses
+    
+    # goes through the poses in the right_poses_dict and the left_poses_dict and calculates 
+    # a more accurate value for them; calls the helper function convert_stereo
+    def calculate_poses(self):
+	poses = []
+	for id_number in self.right_poses_dict.keys():
+	    if id_number in self.left_poses_dict.keys():
+		poses.append(self.take_average(self.left_poses_dict[id_number], self.right_poses_dict[id_number])) 
+	self.poses = poses
+    
+    # publishes the message with joints and poses
+    def publish(self):
+        for pose in self.poses:
+            self.broadcaster.sendTransform(pos_tuple(pose.pose.position), ori_tuple(pose.pose.orientation), rospy.Time.now(), 'ar_stereo', self.output_frame)
+
+    def take_average(self,p1,p2):
+        pos_avg = position_avg(p1.pose.position, p2.pose.position)
+        ori_avg = quaternion_avg(p1.pose.orientation, p2.pose.orientation)
+        pose = PoseStamped()
+        pose.header.stamp = p1.header.stamp
+        pose.header.frame_id = p1.header.frame_id
+        pose.pose.position = pos_avg
+        pose.pose.orientation = ori_avg
+        return pose
+
+    # takes in two poses and returns a more accurate pose based on their values 
+    # uses the stereo_model object from the image_geometry module for calculations
+    def convert_stereo(self,p1,p2):
+        u = p1.pose.position.x
+        v = p2.pose.position.y
+        disparity = p1.pose.position.x - p2.pose.position.x
+        
+        stereo_model = image_geometry.StereoCameraModel()
+        stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
+        (x,y,z) = stereo_model.projectPixelTo3d((u,v),disparity)
+        accurate_pose = PoseStamped()
+        accurate_pose.header.frame_id = self.camera_frame
+        accurate_pose.header.stamp = p1.header.stamp
+        accurate_pose.pose.point.x = x
+        accurate_pose.pose.point.y = y
+        accurate_pose.pose.point.z = z
+	accurate_pose.orientation.x = p1.orientation.x
+	accurate_pose.orientation.y = p1.orientation.y
+	accurate_pose.orientation.z = p1.orientation.z
+	accurate_pose.orientation.w = p1.orientation.w
+	self.transform_listener.waitForTransform(self.output_frame, self.camera_frame, rospy.Time.now(), rospy.Duration(4.0))
+	output_pose = self.listener.transformPose(self.output_frame, accurate_pose)
+        return output_pose
+
+
+def main():
+    rospy.init_node("pose_estimator")
+    outputframe = rospy.get_param('~output_frame',"wide_stereo_optical_frame")
+    camera_frame = rospy.get_param('~camera_frame', "wide_stereo_optical_frame")
+    p = PoseEstimator(outputframe, camera_frame)
+    rospy.spin()
+
+
+if __name__=='__main__':
+    main()
+
+
