@@ -17,7 +17,7 @@ from sensor_msgs.msg import *
 
 # The longest time to wait before broadcasting a marker, even if it is not stereo
 MS = 1000000 # in ns
-LONGEST_STEREO_WAIT = 500 * MS # in ns 
+LONGEST_STEREO_WAIT = 400 * MS # in ns 
 
 ids_to_joints = {0: "left gripper",
                  1: "coke can"}
@@ -164,10 +164,10 @@ class PoseEstimator:
         poses = ARMarkers()
         poses.header.stamp = rospy.Time.now()
         poses.header.frame_id = self.output_frame
-        for (_id, marker) in enumerate(self.poses):
+        for marker in self.poses:
             pose = marker.pose.pose
             poses.markers.append(marker)
-            self.broadcaster.sendTransform(pos_tuple(pose.position), ori_tuple(pose.orientation), marker.header.stamp, 'ar_stereo_' + str(_id), self.output_frame)
+            self.broadcaster.sendTransform(pos_tuple(pose.position), ori_tuple(pose.orientation), marker.header.stamp, 'ar_stereo_' + str(marker.id), self.output_frame)
 
         self.publisher.publish(poses)
         self.last_stereo_marker_time = rospy.Time.now()
@@ -181,7 +181,8 @@ class PoseEstimator:
 
     def take_average_pose(self, p1, p2):
         pos_avg = position_avg(p1.position, p2.position)
-        ori_avg = quaternion_avg(p1.orientation, p2.orientation)
+        #ori_avg = quaternion_avg(p1.orientation, p2.orientation)
+        ori_avg = p1.orientation
         pose = Pose()
         pose.position = pos_avg
         pose.orientation = ori_avg

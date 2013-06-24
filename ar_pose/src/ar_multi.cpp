@@ -291,7 +291,7 @@ namespace ar_pose
         if (isRightCamera_) {
           name += "_r";
         }
-        tf::StampedTransform camToMarker (t, image_msg->header.stamp, image_msg->header.frame_id, object[i].name);
+        tf::StampedTransform camToMarker (t, image_msg->header.stamp, image_msg->header.frame_id, name);
         broadcaster_.sendTransform(camToMarker);
       }
 
