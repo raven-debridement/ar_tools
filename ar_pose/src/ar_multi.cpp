@@ -269,6 +269,7 @@ namespace ar_pose
       ar_pose_marker.pose.pose.orientation.z = quat[2];
       ar_pose_marker.pose.pose.orientation.w = quat[3];
 
+      ROS_INFO("marker: %d, confidence: %f", ar_pose_marker.id, marker_info[k].cf);
       ar_pose_marker.confidence = round(marker_info->cf * 100);
       arPoseMarkers_.markers.push_back (ar_pose_marker);
 

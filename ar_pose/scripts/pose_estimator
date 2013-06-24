@@ -17,7 +17,13 @@ from sensor_msgs.msg import *
 
 # The longest time to wait before broadcasting a marker, even if it is not stereo
 MS = 1000000 # in ns
-LONGEST_STEREO_WAIT = 400 * MS # in ns 
+LONGEST_STEREO_WAIT = 500 * MS # in ns
+class Algorithm:
+    Stereo = 0
+    Average = 1
+    Left = 2
+ALGORITHM = Algorithm.Stereo
+MIN_CONFIDENCE = 80
 
 ids_to_joints = {0: "left gripper",
                  1: "coke can"}
@@ -107,17 +113,16 @@ class PoseEstimator:
     # stores poses in a dictionary that maps from id number to pose
     def right_handle_markers(self, markers):
         for marker in markers.markers:
-            old_pose = marker.pose.pose
-            pos = pos_add(old_pose.position, self.right_offset)
-            marker.pose.pose.position = pos
-            self.right_poses_dict[marker.id] = marker
+            if marker.confidence >= MIN_CONFIDENCE:
+                self.right_poses_dict[marker.id] = marker
         self.handle_both()
 
     # called when a list of AR markers is published for the left camera
     # stores poses in a dictionary that maps from id number to pose
     def left_handle_markers(self, markers):
         for marker in markers.markers:
-            self.left_poses_dict[marker.id] = marker
+            if marker.confidence >= MIN_CONFIDENCE:
+                self.left_poses_dict[marker.id] = marker
         self.handle_both()
 
     # waits until there are values in both right_poses_dict and left_poses_dict
@@ -153,7 +158,13 @@ class PoseEstimator:
         for id_number in self.right_poses_dict.iterkeys():
             if id_number in self.left_poses_dict.keys():
                 left_marker = self.left_poses_dict[id_number]
-                marker = self.take_average_marker(left_marker, self.right_poses_dict[id_number])
+                right_marker = self.right_poses_dict[id_number]
+                if ALGORITHM == Algorithm.STEREO:
+                    marker = self.convert_stereo(left_marker, right_marker)
+                elif ALGORITHM == Algorithm.AVERAGE:
+                    marker = self.take_average_marker(left_marker, right_marker) 
+                elif ALGORITHM == Algorithm.LEFT:
+                    marker = left_marker
                 marker.header.stamp = left_marker.header.stamp
                 marker.id = id_number
                 poses.append(marker)
@@ -190,7 +201,9 @@ class PoseEstimator:
 
     # takes in two poses and returns a more accurate pose based on their values 
     # uses the stereo_model object from the image_geometry module for calculations
-    def convert_stereo(self,p1,p2):
+    def convert_stereo(self,marker1,marker2):
+        p1 = marker1.pose
+        p2 = marker2.pose
         u = p1.pose.position.x
         v = p2.pose.position.y
         disparity = p1.pose.position.x - p2.pose.position.x
@@ -198,19 +211,24 @@ class PoseEstimator:
         stereo_model = image_geometry.StereoCameraModel()
         stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
         (x,y,z) = stereo_model.projectPixelTo3d((u,v),disparity)
-        accurate_pose = PoseStamped()
-        accurate_pose.header.frame_id = self.camera_frame
-        accurate_pose.header.stamp = p1.header.stamp
-        accurate_pose.pose.point.x = x
-        accurate_pose.pose.point.y = y
-        accurate_pose.pose.point.z = z
+
+        accurate_pose = Pose()
+        marker = ARMarker()
+        marker.header.frame_id = self.camera_frame
+        marker.header.stamp = p1.header.stamp
+        accurate_pose.position.x = x
+        accurate_pose.position.y = y
+        accurate_pose.position.z = z
         accurate_pose.orientation.x = p1.orientation.x
         accurate_pose.orientation.y = p1.orientation.y
         accurate_pose.orientation.z = p1.orientation.z
         accurate_pose.orientation.w = p1.orientation.w
-        self.transform_listener.waitForTransform(self.output_frame, self.camera_frame, rospy.Time.now(), rospy.Duration(4.0))
-        output_pose = self.listener.transformPose(self.output_frame, accurate_pose)
-        return output_pose
+        marker.pose.pose = accurate_pose
+
+        return marker
+        #self.transform_listener.waitForTransform(self.output_frame, self.camera_frame, rospy.Time.now(), rospy.Duration(4.0))
+        #output_pose = self.listener.transformPose(self.output_frame, accurate_pose)
+        #return output_pose
 
 
 def main():
