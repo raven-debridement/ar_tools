@@ -17,10 +17,12 @@
   <depend package="sensor_msgs"/>
   <depend package="image_geometry"/>
   <depend package="tf"/>
+  <depend package="pcl_ros"/>
   <depend package="resource_retriever"/>
   <depend package="opencv2"/>
   <depend package="image_transport"/>
   <depend package="cv_bridge"/>
+  <depend package="roscpp"/>
 </package>
 
 

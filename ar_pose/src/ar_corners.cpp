@@ -260,6 +260,18 @@ namespace ar_pose
       ar_pose_marker.header.stamp = image_msg->header.stamp;
       ar_pose_marker.id = object[i].id;
 
+      int d = marker_info[k].dir;
+      ROS_INFO("corner: %f", marker_info[k].vertex[0][0]);
+      ar_pose_marker.corners.resize(8);
+      ar_pose_marker.corners[0] = marker_info[k].vertex[(4-d)%4][0];
+      ar_pose_marker.corners[1] = marker_info[k].vertex[(4-d)%4][1];
+      ar_pose_marker.corners[2] = marker_info[k].vertex[(5-d)%4][0];
+      ar_pose_marker.corners[3] = marker_info[k].vertex[(5-d)%4][1];
+      ar_pose_marker.corners[4] = marker_info[k].vertex[(6-d)%4][0];
+      ar_pose_marker.corners[5] = marker_info[k].vertex[(6-d)%4][1];
+      ar_pose_marker.corners[6] = marker_info[k].vertex[(7-d)%4][0];
+      ar_pose_marker.corners[7] = marker_info[k].vertex[(7-d)%4][1];
+
       ar_pose_marker.pose.pose.position.x = pos[0];
       ar_pose_marker.pose.pose.position.y = pos[1];
       ar_pose_marker.pose.pose.position.z = pos[2];
@@ -269,7 +281,6 @@ namespace ar_pose
       ar_pose_marker.pose.pose.orientation.z = quat[2];
       ar_pose_marker.pose.pose.orientation.w = quat[3];
 
-      ROS_INFO("marker: %d, confidence: %f", ar_pose_marker.id, marker_info[k].cf);
       ar_pose_marker.confidence = round(marker_info[k].cf * 100);
       arPoseMarkers_.markers.push_back (ar_pose_marker);
 

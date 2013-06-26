@@ -22,7 +22,8 @@ class Algorithm:
     Stereo = 0
     Average = 1
     Left = 2
-ALGORITHM = Algorithm.Left
+    Corners = 3
+ALGORITHM = Algorithm.Corners
 MIN_CONFIDENCE = 80
 
 ids_to_joints = {0: "left gripper",
@@ -165,6 +166,8 @@ class PoseEstimator:
                     marker = self.take_average_marker(left_marker, right_marker) 
                 elif ALGORITHM == Algorithm.Left:
                     marker = left_marker
+                elif Algorithm == Algorithm.Corners:
+                    marker = self.stereo_from_corners(left_marker, right_marker)
                 marker.header.stamp = left_marker.header.stamp
                 marker.id = id_number
                 poses.append(marker)
@@ -183,6 +186,14 @@ class PoseEstimator:
         self.publisher.publish(poses)
         self.last_stereo_marker_time = rospy.Time.now()
 
+    def stereo_from_corners(self, left_marker, right_marker):
+        cl = left_marker.corners
+        cr = right_marker.corners
+        top_left = pixelTo3d((cl[0], cl[1]), (cr[0], cr[1])
+        top_right = pixelTo3d((cl[2], cl[3]), (cr[2], cr[3])
+        bottom_right = pixelTo3d((cl[4], cl[5]), (cr[4], cr[5])
+        bottom_left = pixelTo3d((cl[6], cl[7]), (cr[6], cr[7])
+
     def take_average_marker(self, p1, p2):
         pose = self.take_average_pose(p1.pose.pose, p2.pose.pose)
         marker = ARMarker()
@@ -198,6 +209,15 @@ class PoseEstimator:
         pose.position = pos_avg
         pose.orientation = ori_avg
         return pose
+
+    def pixelTo3d(left, right):
+        u = left[0]
+        v = right[1]
+        disparity = left[0] - right[0]
+
+        stereo_model = image_geometry.StereoCameraModel()
+        stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
+        return stereo_model.projectPixelTo3d((u,v), disparity)
 
     # takes in two poses and returns a more accurate pose based on their values 
     # uses the stereo_model object from the image_geometry module for calculations
