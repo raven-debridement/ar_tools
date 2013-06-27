@@ -52,19 +52,10 @@
 #include <ar_pose/ARMarker.h>
 
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
-typedef pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> TransformationEstimationSVD;
+typedef pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> TransformationEstimation;
 
 const float WIDTH = 60.325;
 const double AR_TO_ROS = 0.001;
-
-int main (int argc, char **argv)
-{
-  ros::init (argc, argv, "pcl_corners");
-  ros::NodeHandle n;
-  PclCorners pcl_corners (n);
-  ros::spin ();
-  return 0;
-}
 
 class PclCorners {
   private:
@@ -78,20 +69,20 @@ class PclCorners {
 
   public:
   PclCorners (ros::NodeHandle &n):n_ (n) {
-    arMarkerPub_ = n_.advertise < ar_pose::ARMarkers > ("ar_pose_marker",0);
-    arMarkerSub_ = n_.subscribe("marker_corners", 1, &processMarker, this);
+    arMarkerPub_ = n_.advertise < ar_pose::ARMarkers > ("stereo_pose",0);
+    arMarkerSub_ = n_.subscribe("stereo_corners", 1, &PclCorners::processMarkers, this);
     
-    rvizMarkerPub_ = n_.advertise < visualization_msgs::Marker > ("visualization_marker", 0);
+    rvizMarkerPub_ = n_.advertise < visualization_msgs::Marker > ("visualization_marker_stereo", 0);
   }
 
-  tf::Transform tfFromEigen(Eigen::Matrix4f trans)
+  btTransform tfFromEigen(Eigen::Matrix4f trans)
   {
-    tf::Matrix3x3 btm;
+    btMatrix3x3 btm;
     btm.setValue(trans(0,0),trans(0,1),trans(0,2),
                trans(1,0),trans(1,1),trans(1,2),
                trans(2,0),trans(2,1),trans(2,2));
-    tf::Transform ret;
-    ret.setOrigin(tf::Vector3(trans(0,3),trans(1,3),trans(2,3)));
+    btTransform ret;
+    ret.setOrigin(btVector3(trans(0,3),trans(1,3),trans(2,3)));
     ret.setBasis(btm);
     return ret;
   }
@@ -105,20 +96,28 @@ class PclCorners {
     return p;
   }
 
+  void processMarkers(const ar_pose::ARMarkersConstPtr & msg) {
+    arPoseMarkers_.markers.clear();
+    for (int i = 0; i < msg->markers.size(); i++) {
+      processMarker(msg->markers[i]);
+    }
+    arMarkerPub_.publish( arPoseMarkers_ );
+    ROS_DEBUG ("Published ar marker");
+  }
 
-  void processMarker(const ar_pose::ARMarkerConstPtr & msg) {
-    float tlx = msg->corners[0];
-    float tly = msg->corners[1];
-    float tlz = msg->corners[2];
-    float trx = msg->corners[3];
-    float tr_y = msg->corners[4];
-    float trz = msg->corners[5];
-    float brx = msg->corners[6];
-    float bry = msg->corners[7];
-    float brz = msg->corners[8];
-    float blx = msg->corners[9];
-    float bly = msg->corners[10];
-    float blz = msg->corners[11];
+  void processMarker(const ar_pose::ARMarker_<std::allocator<void> >& msg) {
+    float tlx = msg.corners[0];
+    float tly = msg.corners[1];
+    float tlz = msg.corners[2];
+    float trx = msg.corners[3];
+    float tr_y = msg.corners[4];
+    float trz = msg.corners[5];
+    float brx = msg.corners[6];
+    float bry = msg.corners[7];
+    float brz = msg.corners[8];
+    float blx = msg.corners[9];
+    float bly = msg.corners[10];
+    float blz = msg.corners[11];
 
     PointCloud marker;
     marker.push_back( makePoint(tlx, tly, tlz) );
@@ -126,7 +125,7 @@ class PclCorners {
     marker.push_back( makePoint(brx, bry, brz) );
     marker.push_back( makePoint(blx, bly, blz) );
 
-    w = WIDTH;
+    float w = WIDTH;
 
     PointCloud ideal;
     ideal.push_back( makePoint(-w/2,w/2,0) ); 
@@ -136,16 +135,16 @@ class PclCorners {
 
     /* get transformation */
       Eigen::Matrix4f t;
-      TransformationEstimationSVD obj;
+      TransformationEstimation obj;
       obj.estimateRigidTransformation( marker, ideal, t );
 
 
       /* get final transformation */
-      tf::Transform transform = tfFromEigen(t.inverse());
+      btTransform transform = tfFromEigen(t.inverse());
 
       // any(transform == nan)
-      tf::Matrix3x3  m = transform.getBasis();
-      tf::Vector3    p = transform.getOrigin();
+      btMatrix3x3  m = transform.getBasis();
+      btVector3    p = transform.getOrigin();
       bool invalid = false;
       for(int i=0; i < 3; i++)
         for(int j=0; j < 3; j++)
@@ -155,18 +154,17 @@ class PclCorners {
           invalid = (invalid || isnan(p[i]));
 
       if(invalid) {
-        LOG_INFO("Invalid transform");
+        ROS_INFO("Invalid transform");
         return;
       }
 
       ros::Time time = ros::Time::now();
 
       /* publish the marker */
-      arPoseMarkers_.markers.clear();
       ar_pose::ARMarker ar_pose_marker;
-      ar_pose_marker.header.frame_id = msg->header.frame_id;
+      ar_pose_marker.header.frame_id = msg.header.frame_id;
       ar_pose_marker.header.stamp = time;
-      ar_pose_marker.id = msg->id;
+      ar_pose_marker.id = msg.id;
 
       ar_pose_marker.pose.pose.position.x = transform.getOrigin().getX();
       ar_pose_marker.pose.pose.position.y = transform.getOrigin().getY();
@@ -178,22 +176,22 @@ class PclCorners {
       ar_pose_marker.pose.pose.orientation.w = transform.getRotation().getW();
 
       arPoseMarkers_.markers.push_back (ar_pose_marker);
-      arMarkerPub_.publish( arPoseMarkers_ );
-      ROS_DEBUG ("Published ar marker");
 
       /* publish transform */
-            broadcaster_.sendTransform(tf::StampedTransform(transform, time, msg->header.frame_id, "stereo_" + string(msg->id)));
+      char name[20];
+      sprintf(name, "ar_stereo_%d", msg.id);
+      broadcaster_.sendTransform(tf::StampedTransform(transform, time, msg.header.frame_id, name));
 
       /* publish visual marker */
-        tf::Vector3 markerOrigin (0, 0, 0.25 * w * AR_TO_ROS);
-        tf::Transform m (btQuaternion::getIdentity (), markerOrigin);
-        tf::Transform markerPose = transform * m; // marker pose in the camera frame
+        btVector3 markerOrigin (0, 0, 0.25 * w * AR_TO_ROS);
+        btTransform m2 (btQuaternion::getIdentity (), markerOrigin);
+        btTransform markerPose = transform * m2; // marker pose in the camera frame
 
         tf::poseTFToMsg (markerPose, rvizMarker_.pose);
 
-        rvizMarker_.header.frame_id = msg->header.frame_id;
+        rvizMarker_.header.frame_id = msg.header.frame_id;
         rvizMarker_.header.stamp = time;
-        rvizMarker_.id = msg->id;
+        rvizMarker_.id = msg.id;
 
         rvizMarker_.scale.x = 1.0 * w * AR_TO_ROS;
         rvizMarker_.scale.y = 1.0 * w * AR_TO_ROS;
@@ -201,7 +199,7 @@ class PclCorners {
         rvizMarker_.ns = "basic_shapes";
         rvizMarker_.type = visualization_msgs::Marker::CUBE;
         rvizMarker_.action = visualization_msgs::Marker::ADD;
-        switch (msg->id)
+        switch (msg.id)
         {
           case 0:
             rvizMarker_.color.r = 0.0f;
@@ -226,4 +224,14 @@ class PclCorners {
         rvizMarkerPub_.publish (rvizMarker_);
         ROS_DEBUG ("Published visual marker");
   }
+};
+
+int main (int argc, char **argv)
+{
+  ros::init (argc, argv, "pcl_corners");
+  ros::NodeHandle n;
+  PclCorners pcl_corners(n);
+  ros::spin ();
+  return 0;
 }
+

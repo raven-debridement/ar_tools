@@ -91,6 +91,7 @@ class PoseEstimator:
         self.camera_frame = camera_frame
         self.last_stereo_marker_time = rospy.Time.now()
         self.poses = []
+        self.all_camera_infos_set = False
         
         right_frame = 'wide_stereo_gazebo_r_stereo_camera_frame'
         left_frame = 'wide_stereo_gazebo_l_stereo_camera_frame'
@@ -99,6 +100,7 @@ class PoseEstimator:
         self.right_offset = (0,0,0)
 
         self.publisher = rospy.Publisher("stereo_pose", ARMarkers)
+        self.corners_pub = rospy.Publisher("stereo_corners", ARMarkers)
 
         self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarkers, self.left_handle_markers)
         self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarkers, self.right_handle_markers)
@@ -108,6 +110,8 @@ class PoseEstimator:
     def handle_camera_info(self, camera):
         def handler(camera_info):
             self.camera_info[camera] = camera_info
+            if 'left' in self.camera_info and 'right' in self.camera_info:
+                self.all_camera_infos_set = True
         return handler
             
     # called when a list of AR markers is published for the right camera
@@ -130,6 +134,8 @@ class PoseEstimator:
     # calls helper functions to calculate more accurate poses, and publishes those poses
     # then clears the dictionaries
     def handle_both(self):
+        if not self.all_camera_infos_set:
+            return
         if self.right_poses_dict and self.left_poses_dict:
             self.calculate_poses()
             self.publish()
@@ -137,6 +143,8 @@ class PoseEstimator:
             self.right_poses_dict = {}              
         elif ((rospy.Time.now().secs - self.last_stereo_marker_time.secs > 1) or
               (rospy.Time.now().nsecs - self.last_stereo_marker_time.nsecs) > LONGEST_STEREO_WAIT):
+            if ALGORITHM == Algorithm.Corners:
+                return
             self.calculate_nonstereo_pose()
             self.publish()
             self.left_poses_dict = {}
@@ -166,8 +174,9 @@ class PoseEstimator:
                     marker = self.take_average_marker(left_marker, right_marker) 
                 elif ALGORITHM == Algorithm.Left:
                     marker = left_marker
-                elif Algorithm == Algorithm.Corners:
+                elif ALGORITHM == Algorithm.Corners:
                     marker = self.stereo_from_corners(left_marker, right_marker)
+                marker.header.frame_id = left_marker.header.frame_id
                 marker.header.stamp = left_marker.header.stamp
                 marker.id = id_number
                 poses.append(marker)
@@ -175,24 +184,32 @@ class PoseEstimator:
     
     # publishes the message with joints and poses
     def publish(self):
-        poses = ARMarkers()
-        poses.header.stamp = rospy.Time.now()
-        poses.header.frame_id = self.output_frame
+        markers = ARMarkers()
+        markers.header.stamp = rospy.Time.now()
+        markers.header.frame_id = self.output_frame
         for marker in self.poses:
-            pose = marker.pose.pose
-            poses.markers.append(marker)
-            self.broadcaster.sendTransform(pos_tuple(pose.position), ori_tuple(pose.orientation), marker.header.stamp, 'ar_stereo_' + str(marker.id), self.output_frame)
-
-        self.publisher.publish(poses)
+            markers.markers.append(marker)
+        if ALGORITHM == Algorithm.Corners:
+            self.corners_pub.publish(markers)
+        else:
+            for marker in self.poses:
+                pose = marker.pose.pose
+                self.broadcaster.sendTransform(pos_tuple(pose.position), ori_tuple(pose.orientation), marker.header.stamp, 'ar_stereo_' + str(marker.id), self.output_frame)
+            self.publisher.publish(markers)
+        
         self.last_stereo_marker_time = rospy.Time.now()
 
     def stereo_from_corners(self, left_marker, right_marker):
         cl = left_marker.corners
         cr = right_marker.corners
-        top_left = pixelTo3d((cl[0], cl[1]), (cr[0], cr[1])
-        top_right = pixelTo3d((cl[2], cl[3]), (cr[2], cr[3])
-        bottom_right = pixelTo3d((cl[4], cl[5]), (cr[4], cr[5])
-        bottom_left = pixelTo3d((cl[6], cl[7]), (cr[6], cr[7])
+        c = [0]*12
+        c[0], c[1], c[2] = self.pixelTo3d((cl[0], cl[1]), (cr[0], cr[1]))
+        c[3], c[4], c[5] = self.pixelTo3d((cl[2], cl[3]), (cr[2], cr[3]))
+        c[6], c[7], c[8] = self.pixelTo3d((cl[4], cl[5]), (cr[4], cr[5]))
+        c[9], c[10], c[11] = self.pixelTo3d((cl[6], cl[7]), (cr[6], cr[7]))
+        marker = ARMarker()
+        marker.corners = c
+        return marker
 
     def take_average_marker(self, p1, p2):
         pose = self.take_average_pose(p1.pose.pose, p2.pose.pose)
@@ -210,7 +227,7 @@ class PoseEstimator:
         pose.orientation = ori_avg
         return pose
 
-    def pixelTo3d(left, right):
+    def pixelTo3d(self, left, right):
         u = left[0]
         v = right[1]
         disparity = left[0] - right[0]

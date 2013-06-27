@@ -261,7 +261,6 @@ namespace ar_pose
       ar_pose_marker.id = object[i].id;
 
       int d = marker_info[k].dir;
-      ROS_INFO("corner: %f", marker_info[k].vertex[0][0]);
       ar_pose_marker.corners.resize(8);
       ar_pose_marker.corners[0] = marker_info[k].vertex[(4-d)%4][0];
       ar_pose_marker.corners[1] = marker_info[k].vertex[(4-d)%4][1];
@@ -287,14 +286,14 @@ namespace ar_pose
       // **** publish transform between camera and marker
 
 #if ROS_VERSION_MINIMUM(1, 9, 0)
-      tf::Quaternion rotation (quat[0], quat[1], quat[2], quat[3]);
-      tf::Vector3 origin (pos[0], pos[1], pos[2]);
-      tf::Transform t (rotation, origin);
+      btQuaternion rotation (quat[0], quat[1], quat[2], quat[3]);
+      btVector3 origin (pos[0], pos[1], pos[2]);
+      btTransform t (rotation, origin);
 #else
 // DEPRECATED: Fuerte support ends when Hydro is released
-      tf::Quaternion rotation (quat[0], quat[1], quat[2], quat[3]);
-      tf::Vector3 origin (pos[0], pos[1], pos[2]);
-      tf::Transform t (rotation, origin);
+      btQuaternion rotation (quat[0], quat[1], quat[2], quat[3]);
+      btVector3 origin (pos[0], pos[1], pos[2]);
+      btTransform t (rotation, origin);
 #endif
 
       if (publishTf_)
@@ -312,14 +311,14 @@ namespace ar_pose
       if (publishVisualMarkers_)
       {
 #if ROS_VERSION_MINIMUM(1, 9, 0)
-        tf::Vector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
-        tf::Transform m (tf::Quaternion::getIdentity (), markerOrigin);
-        tf::Transform markerPose = t * m; // marker pose in the camera frame 
+        btVector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
+        btTransform m (btQuaternion::getIdentity (), markerOrigin);
+        btTransform markerPose = t * m; // marker pose in the camera frame 
 #else
 // DEPRECATED: Fuerte support ends when Hydro is released
-        tf::Vector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
-        tf::Transform m (tf::Quaternion::getIdentity (), markerOrigin);
-        tf::Transform markerPose = t * m; // marker pose in the camera frame
+        btVector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
+        btTransform m (btQuaternion::getIdentity (), markerOrigin);
+        btTransform markerPose = t * m; // marker pose in the camera frame
 #endif
 
         tf::poseTFToMsg (markerPose, rvizMarker_.pose);
