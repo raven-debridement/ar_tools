@@ -15,15 +15,17 @@ from ar_pose.msg import ARMarkers
 from geometry_msgs.msg import *
 from sensor_msgs.msg import *
 
+from threading import Lock
+
 # The longest time to wait before broadcasting a marker, even if it is not stereo
 MS = 1000000 # in ns
 LONGEST_STEREO_WAIT = 100 * MS # in ns
 class Algorithm:
-    Stereo = 0
-    Average = 1
-    Left = 2
-    Corners = 3
-ALGORITHM = Algorithm.Corners
+    Stereo = "stereo"
+    Average = "average"
+    Left = "left"
+    Corners = "corners"
+ALGORITHM = Algorithm.Stereo
 MIN_CONFIDENCE = 80
 
 ids_to_joints = {0: "left gripper",
@@ -81,7 +83,7 @@ def ori_diff(o1, o2):
 # TODO: output frame, camera frame don't actually do anything right now and must be the same
 # in take_average
 class PoseEstimator:
-    def __init__(self, output_frame, camera_frame):
+    def __init__(self, output_frame, camera_frame, algorithm):
         self.camera_info = {}
         self.transform_listener = tf.TransformListener()
         self.broadcaster = tf.TransformBroadcaster()
@@ -89,9 +91,11 @@ class PoseEstimator:
         self.left_poses_dict = {}
         self.output_frame = output_frame
         self.camera_frame = camera_frame
+        self.algorithm = algorithm
         self.last_stereo_marker_time = rospy.Time.now()
+        self.locks = dict()
+        self.locks['handle_both'] = Lock()
         self.poses = []
-        self.all_camera_infos_set = False
         
         right_frame = 'wide_stereo_gazebo_r_stereo_camera_frame'
         left_frame = 'wide_stereo_gazebo_l_stereo_camera_frame'
@@ -102,8 +106,6 @@ class PoseEstimator:
         self.publisher = rospy.Publisher("stereo_pose", ARMarkers)
         self.corners_pub = rospy.Publisher("stereo_corners", ARMarkers)
 
-        self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarkers, self.left_handle_markers)
-        self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarkers, self.right_handle_markers)
         self.left_camera_info_subscriber = rospy.Subscriber("wide_stereo/left/camera_info", CameraInfo, self.handle_camera_info('left'));
         self.right_camera_info_subscriber = rospy.Subscriber("wide_stereo/right/camera_info", CameraInfo, self.handle_camera_info('right'));
 
@@ -111,7 +113,10 @@ class PoseEstimator:
         def handler(camera_info):
             self.camera_info[camera] = camera_info
             if 'left' in self.camera_info and 'right' in self.camera_info:
-                self.all_camera_infos_set = True
+                self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarkers, self.left_handle_markers)
+                self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarkers, self.right_handle_markers)
+                self.stereo_model = image_geometry.StereoCameraModel()
+                self.stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
         return handler
             
     # called when a list of AR markers is published for the right camera
@@ -134,8 +139,7 @@ class PoseEstimator:
     # calls helper functions to calculate more accurate poses, and publishes those poses
     # then clears the dictionaries
     def handle_both(self):
-        if not self.all_camera_infos_set:
-            return
+        #self.locks['handle_both'].acquire()
         if self.right_poses_dict and self.left_poses_dict:
             self.calculate_poses()
             self.publish()
@@ -143,12 +147,13 @@ class PoseEstimator:
             self.right_poses_dict = {}              
         elif ((rospy.Time.now().secs - self.last_stereo_marker_time.secs > 1) or
               (rospy.Time.now().nsecs - self.last_stereo_marker_time.nsecs) > LONGEST_STEREO_WAIT):
-            if ALGORITHM == Algorithm.Corners:
+            if self.algorithm == Algorithm.Corners:
                 return
             self.calculate_nonstereo_pose()
             self.publish()
             self.left_poses_dict = {}
             self.right_poses_dict = {}
+        #self.locks['handle_both'].release()
 
     def calculate_nonstereo_pose(self):
         poses = []
@@ -168,13 +173,13 @@ class PoseEstimator:
             if id_number in self.left_poses_dict.keys():
                 left_marker = self.left_poses_dict[id_number]
                 right_marker = self.right_poses_dict[id_number]
-                if ALGORITHM == Algorithm.Stereo:
+                if self.algorithm == Algorithm.Stereo:
                     marker = self.convert_stereo(left_marker, right_marker)
-                elif ALGORITHM == Algorithm.Average:
+                elif self.algorithm == Algorithm.Average:
                     marker = self.take_average_marker(left_marker, right_marker) 
-                elif ALGORITHM == Algorithm.Left:
+                elif self.algorithm == Algorithm.Left:
                     marker = left_marker
-                elif ALGORITHM == Algorithm.Corners:
+                elif self.algorithm == Algorithm.Corners:
                     marker = self.stereo_from_corners(left_marker, right_marker)
                 marker.header.frame_id = left_marker.header.frame_id
                 marker.header.stamp = left_marker.header.stamp
@@ -189,7 +194,7 @@ class PoseEstimator:
         markers.header.frame_id = self.output_frame
         for marker in self.poses:
             markers.markers.append(marker)
-        if ALGORITHM == Algorithm.Corners:
+        if self.algorithm == Algorithm.Corners:
             self.corners_pub.publish(markers)
         else:
             for marker in self.poses:
@@ -239,20 +244,16 @@ class PoseEstimator:
     # takes in two poses and returns a more accurate pose based on their values 
     # uses the stereo_model object from the image_geometry module for calculations
     def convert_stereo(self,marker1,marker2):
-        p1 = marker1.pose
-        p2 = marker2.pose
-        u = p1.pose.position.x
-        v = p2.pose.position.y
-        disparity = p1.pose.position.x - p2.pose.position.x
+        p1 = marker1.pose.pose
+        p2 = marker2.pose.pose
+        u = p1.position.x
+        v = p2.position.y
+        disparity = p1.position.x - p2.position.x
         
-        stereo_model = image_geometry.StereoCameraModel()
-        stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
-        (x,y,z) = stereo_model.projectPixelTo3d((u,v),disparity)
+        (x,y,z) = self.stereo_model.projectPixelTo3d((u,v),disparity)
 
         accurate_pose = Pose()
         marker = ARMarker()
-        marker.header.frame_id = self.camera_frame
-        marker.header.stamp = p1.header.stamp
         accurate_pose.position.x = x
         accurate_pose.position.y = y
         accurate_pose.position.z = z
@@ -272,7 +273,8 @@ def main():
     rospy.init_node("pose_estimator")
     outputframe = rospy.get_param('~output_frame',"wide_stereo_optical_frame")
     camera_frame = rospy.get_param('~camera_frame', "wide_stereo_optical_frame")
-    p = PoseEstimator(outputframe, camera_frame)
+    algorithm = rospy.get_param('~algorithm', ALGORITHM)
+    p = PoseEstimator(outputframe, camera_frame, algorithm)
     print "starting to spin"
     rospy.spin()
 

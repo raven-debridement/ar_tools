@@ -13,7 +13,7 @@
     <remap from="camera/image_raw" to="wide_stereo/right/image_rect" />
     <remap from="ar_pose_marker" to="ar_pose_marker_r" />
     <remap from="visualization_marker" to="visualization_marker_r" />
-    <!-- <param name="is_right_camera" type="bool" value="true" /> -->
+    <param name="is_right_camera" type="bool" value="true" />
     <param name="marker_pattern_list" type="string"
       value="$(find ar_pose)/data/object_4x4"/>
     <param name="marker_frame" type="string" value="ar_marker_r" />
@@ -21,6 +21,7 @@
   </node>
   <node name="ar_stereo_node" pkg="ar_pose" type="pose_estimator" output="screen"
     respawn="false">
+    <param name="algorithm" type="string" value="corners" />
   </node>
   <node name="pcl_corners" pkg="ar_pose" type="pcl_corners" output="screen"
     respawn="false" />
