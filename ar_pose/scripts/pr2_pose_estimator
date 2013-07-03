@@ -97,8 +97,8 @@ class PoseEstimator:
         self.locks['handle_both'] = Lock()
         self.poses = []
         
-        right_frame = 'right_optical_frame'
-        left_frame = 'left_optical_frame'
+        right_frame = 'wide_stereo_gazebo_r_stereo_camera_frame'
+        left_frame = 'wide_stereo_gazebo_l_stereo_camera_frame'
         #self.transform_listener.waitForTransform(right_frame, left_frame, rospy.Time(), rospy.Duration(4.0))
         #(self.right_offset, rot) = self.transform_listener.lookupTransform(left_frame, right_frame, rospy.Time())
         self.right_offset = (0,0,0)
@@ -106,8 +106,8 @@ class PoseEstimator:
         self.publisher = rospy.Publisher("stereo_pose", ARMarkers)
         self.corners_pub = rospy.Publisher("stereo_corners", ARMarkers)
 
-        self.left_camera_info_subscriber = rospy.Subscriber("/left/camera_info", CameraInfo, self.handle_camera_info('left'));
-        self.right_camera_info_subscriber = rospy.Subscriber("/right/camera_info", CameraInfo, self.handle_camera_info('right'));
+        self.left_camera_info_subscriber = rospy.Subscriber("wide_stereo/left/camera_info", CameraInfo, self.handle_camera_info('left'));
+        self.right_camera_info_subscriber = rospy.Subscriber("wide_stereo/right/camera_info", CameraInfo, self.handle_camera_info('right'));
 
     def handle_camera_info(self, camera):
         def handler(camera_info):
@@ -271,8 +271,8 @@ class PoseEstimator:
 
 def main():
     rospy.init_node("pose_estimator")
-    outputframe = rospy.get_param('~output_frame',"left_optical_frame")
-    camera_frame = rospy.get_param('~camera_frame', "left_optical_frame")
+    outputframe = rospy.get_param('~output_frame',"wide_stereo_optical_frame")
+    camera_frame = rospy.get_param('~camera_frame', "wide_stereo_optical_frame")
     algorithm = rospy.get_param('~algorithm', ALGORITHM)
     p = PoseEstimator(outputframe, camera_frame, algorithm)
     print "starting to spin"
