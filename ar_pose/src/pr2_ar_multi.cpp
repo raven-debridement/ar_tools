@@ -184,6 +184,8 @@ namespace ar_pose
     dataPtr = (ARUint8 *) capture_->imageData;
 #endif
 
+    ROS_INFO("trying to detect marker");
+
     // detect the markers in the video frame
     if (arDetectMarker (dataPtr, threshold_, &marker_info, &marker_num) < 0)
     {
@@ -239,9 +241,9 @@ namespace ar_pose
       pos[2] = arPos[2] * AR_TO_ROS;
 
       if (isRightCamera_) {
-        pos[2] += 0; //-0.001704;
-        pos[0] += 0; //+0.0899971;
-        pos[1] += 0; //-0.00012;
+        pos[2] += -0.001704;
+        pos[0] += +0.0899971;
+        pos[1] += -0.00012;
       }
 
       quat[0] = -arQuat[0];
@@ -259,17 +261,6 @@ namespace ar_pose
       ar_pose_marker.header.frame_id = image_msg->header.frame_id;
       ar_pose_marker.header.stamp = image_msg->header.stamp;
       ar_pose_marker.id = object[i].id;
-
-      int d = marker_info[k].dir;
-      ar_pose_marker.corners.resize(8);
-      ar_pose_marker.corners[0] = marker_info[k].vertex[(4-d)%4][0];
-      ar_pose_marker.corners[1] = marker_info[k].vertex[(4-d)%4][1];
-      ar_pose_marker.corners[2] = marker_info[k].vertex[(5-d)%4][0];
-      ar_pose_marker.corners[3] = marker_info[k].vertex[(5-d)%4][1];
-      ar_pose_marker.corners[4] = marker_info[k].vertex[(6-d)%4][0];
-      ar_pose_marker.corners[5] = marker_info[k].vertex[(6-d)%4][1];
-      ar_pose_marker.corners[6] = marker_info[k].vertex[(7-d)%4][0];
-      ar_pose_marker.corners[7] = marker_info[k].vertex[(7-d)%4][1];
 
       ar_pose_marker.pose.pose.position.x = pos[0];
       ar_pose_marker.pose.pose.position.y = pos[1];

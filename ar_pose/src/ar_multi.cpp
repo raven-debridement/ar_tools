@@ -184,6 +184,8 @@ namespace ar_pose
     dataPtr = (ARUint8 *) capture_->imageData;
 #endif
 
+    ROS_INFO("trying to detect marker");
+
     // detect the markers in the video frame
     if (arDetectMarker (dataPtr, threshold_, &marker_info, &marker_num) < 0)
     {
@@ -239,9 +241,9 @@ namespace ar_pose
       pos[2] = arPos[2] * AR_TO_ROS;
 
       if (isRightCamera_) {
-        pos[2] += -0.001704;
-        pos[0] += +0.0899971;
-        pos[1] += -0.00012;
+        pos[2] += 0; // -0.001704;
+        pos[0] += 0; // +0.0899971;
+        pos[1] += 0; // -0.00012;
       }
 
       quat[0] = -arQuat[0];

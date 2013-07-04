@@ -54,8 +54,8 @@
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 typedef pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> TransformationEstimation;
 
-const float WIDTH = 60.325;
 const double AR_TO_ROS = 0.001;
+const double WIDTH = 5.16;
 
 class PclCorners {
   private:
@@ -165,6 +165,7 @@ class PclCorners {
       ar_pose_marker.header.frame_id = msg.header.frame_id;
       ar_pose_marker.header.stamp = time;
       ar_pose_marker.id = msg.id;
+      ar_pose_marker.confidence = msg.confidence;
 
       ar_pose_marker.pose.pose.position.x = transform.getOrigin().getX();
       ar_pose_marker.pose.pose.position.y = transform.getOrigin().getY();
