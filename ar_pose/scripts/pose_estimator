@@ -15,21 +15,21 @@ from ar_pose.msg import ARMarkers
 from geometry_msgs.msg import *
 from sensor_msgs.msg import *
 
-from threading import Lock
+from threading import *
+from collections import OrderedDict
 
 # The longest time to wait before broadcasting a marker, even if it is not stereo
 MS = 1000000 # in ns
-LONGEST_STEREO_WAIT = 100 * MS # in ns
+LONGEST_STEREO_WAIT = 500 * MS # in ns
+THROWOUT_TIME = rospy.Duration.from_sec(1)
+
 class Algorithm:
     Stereo = "stereo"
     Average = "average"
     Left = "left"
     Corners = "corners"
 ALGORITHM = Algorithm.Stereo
-MIN_CONFIDENCE = 80
-
-ids_to_joints = {0: "left gripper",
-                 1: "coke can"}
+MIN_CONFIDENCE = 0
 
 # takes in two quaternions and returns their dot product
 def quat_dot_product(q1, q2):
@@ -66,7 +66,7 @@ def ori_tuple(q1):
 
 def pos_add(p1, offset):
     pos = Point()
-    pos.x = p1.x + offset[0]
+
     pos.y = p1.y + offset[1]
     pos.z = p1.z + offset[2]
     return pos
@@ -87,14 +87,16 @@ class PoseEstimator:
         self.camera_info = {}
         self.transform_listener = tf.TransformListener()
         self.broadcaster = tf.TransformBroadcaster()
-        self.right_poses_dict = {}
-        self.left_poses_dict = {}
+        self.right_poses_dict = OrderedDict()
+        self.left_poses_dict = OrderedDict()
         self.output_frame = output_frame
         self.camera_frame = camera_frame
         self.algorithm = algorithm
         self.last_stereo_marker_time = rospy.Time.now()
         self.locks = dict()
-        self.locks['handle_both'] = Lock()
+        self.locks['handle_both'] = Semaphore()
+        self.locks['left'] = Lock()
+        self.locks['right'] = Lock()
         self.poses = []
         
         right_frame = 'right_optical_frame'
@@ -113,8 +115,8 @@ class PoseEstimator:
         def handler(camera_info):
             self.camera_info[camera] = camera_info
             if 'left' in self.camera_info and 'right' in self.camera_info:
-                self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarkers, self.left_handle_markers)
-                self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarkers, self.right_handle_markers)
+                self.left_point_subscriber = rospy.Subscriber("ar_pose_marker", ARMarkers, self.left_handle_markers, queue_size=1)
+                self.right_point_subscriber = rospy.Subscriber("ar_pose_marker_r", ARMarkers, self.right_handle_markers, queue_size=1)
                 self.stereo_model = image_geometry.StereoCameraModel()
                 self.stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])
         return handler
@@ -122,38 +124,49 @@ class PoseEstimator:
     # called when a list of AR markers is published for the right camera
     # stores poses in a dictionary that maps from id number to pose
     def right_handle_markers(self, markers):
+        if rospy.Time.now() - markers.header.stamp > THROWOUT_TIME:
+            return
+        d = {}
         for marker in markers.markers:
             if marker.confidence >= MIN_CONFIDENCE:
-                self.right_poses_dict[marker.id] = marker
+                d[marker.id] = marker
+        self.locks['handle_both'].acquire()
+        self.right_poses_dict[markers.header.stamp] = d
+        self.locks['handle_both'].release()
         self.handle_both()
 
     # called when a list of AR markers is published for the left camera
     # stores poses in a dictionary that maps from id number to pose
     def left_handle_markers(self, markers):
+        if rospy.Time.now() - markers.header.stamp > THROWOUT_TIME:
+            return
+        d = {}
         for marker in markers.markers:
             if marker.confidence >= MIN_CONFIDENCE:
-                self.left_poses_dict[marker.id] = marker
+                d[marker.id] = marker
+        self.locks['handle_both'].acquire()
+        self.left_poses_dict[markers.header.stamp] = d
+        self.locks['handle_both'].release()
         self.handle_both()
 
     # waits until there are values in both right_poses_dict and left_poses_dict
     # calls helper functions to calculate more accurate poses, and publishes those poses
     # then clears the dictionaries
     def handle_both(self):
-        #self.locks['handle_both'].acquire()
         if self.right_poses_dict and self.left_poses_dict:
-            self.calculate_poses()
-            self.publish()
-            self.left_poses_dict = {}
-            self.right_poses_dict = {}              
+            self.locks['handle_both'].acquire()
+            if self.right_poses_dict and self.left_poses_dict:
+                try:
+                    (left_stamp, left_poses) = self.left_poses_dict.popitem()
+                    (right_stamp, right_poses) = self.right_poses_dict.popitem()
+                    self.calculate_poses(left_poses, right_poses)
+                except Exception as e:
+                    print type(e), e
+            self.locks['handle_both'].release()
         elif ((rospy.Time.now().secs - self.last_stereo_marker_time.secs > 1) or
               (rospy.Time.now().nsecs - self.last_stereo_marker_time.nsecs) > LONGEST_STEREO_WAIT):
-            if self.algorithm == Algorithm.Corners:
-                return
+            return
             self.calculate_nonstereo_pose()
-            self.publish()
-            self.left_poses_dict = {}
-            self.right_poses_dict = {}
-        #self.locks['handle_both'].release()
 
     def calculate_nonstereo_pose(self):
         poses = []
@@ -163,16 +176,16 @@ class PoseEstimator:
         else:
             for marker in self.right_poses_dict.values():
                 poses.append(marker)
-        self.poses = poses
+        self.publish(poses)
     
     # goes through the poses in the right_poses_dict and the left_poses_dict and calculates 
     # a more accurate value for them; calls the helper function convert_stereo
-    def calculate_poses(self):
+    def calculate_poses(self, left_poses, right_poses):
         poses = []
-        for id_number in self.right_poses_dict.iterkeys():
-            if id_number in self.left_poses_dict.keys():
-                left_marker = self.left_poses_dict[id_number]
-                right_marker = self.right_poses_dict[id_number]
+        for id_number in right_poses.keys():
+            if id_number in left_poses.keys():
+                right_marker = right_poses[id_number]
+                left_marker = left_poses[id_number]
                 if self.algorithm == Algorithm.Stereo:
                     marker = self.convert_stereo(left_marker, right_marker)
                 elif self.algorithm == Algorithm.Average:
@@ -183,16 +196,17 @@ class PoseEstimator:
                     marker = self.stereo_from_corners(left_marker, right_marker)
                 marker.header.frame_id = left_marker.header.frame_id
                 marker.header.stamp = left_marker.header.stamp
+                marker.confidence = min(left_marker.confidence, right_marker.confidence)
                 marker.id = id_number
                 poses.append(marker)
-        self.poses = poses
+        self.publish(poses)
     
     # publishes the message with joints and poses
-    def publish(self):
+    def publish(self, poses):
         markers = ARMarkers()
         markers.header.stamp = rospy.Time.now()
         markers.header.frame_id = self.output_frame
-        for marker in self.poses:
+        for marker in poses:
             markers.markers.append(marker)
         if self.algorithm == Algorithm.Corners:
             self.corners_pub.publish(markers)
@@ -235,7 +249,9 @@ class PoseEstimator:
     def pixelTo3d(self, left, right):
         u = left[0]
         v = right[1]
-        disparity = left[0] - right[0]
+        cxl = self.camera_info['left'].K[2]
+        cxr = self.camera_info['right'].K[2]
+        disparity = left[0] - right[0] - (cxl - cxr)
 
         stereo_model = image_geometry.StereoCameraModel()
         stereo_model.fromCameraInfo(self.camera_info['left'], self.camera_info['right'])

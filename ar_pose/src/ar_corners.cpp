@@ -255,6 +255,7 @@ namespace ar_pose
 
       // **** publish the marker
 
+      arPoseMarkers_.header.stamp = image_msg->header.stamp;
       ar_pose::ARMarker ar_pose_marker;
       ar_pose_marker.header.frame_id = image_msg->header.frame_id;
       ar_pose_marker.header.stamp = image_msg->header.stamp;

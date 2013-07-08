@@ -50,6 +50,7 @@
 
 #include <ar_pose/ARMarkers.h>
 #include <ar_pose/ARMarker.h>
+#include <ar_pose/object.h>
 
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 typedef pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> TransformationEstimation;
@@ -66,6 +67,9 @@ class PclCorners {
     ros::Publisher rvizMarkerPub_;
     visualization_msgs::Marker rvizMarker_;
     ar_pose::ARMarkers arPoseMarkers_;
+    
+    int objectnum;
+    ar_object::ObjectData_T * object;
 
   public:
   PclCorners (ros::NodeHandle &n):n_ (n) {
@@ -73,6 +77,24 @@ class PclCorners {
     arMarkerSub_ = n_.subscribe("stereo_corners", 1, &PclCorners::processMarkers, this);
     
     rvizMarkerPub_ = n_.advertise < visualization_msgs::Marker > ("visualization_marker_stereo", 0);
+
+    std::string path;
+    char pattern_filename[FILENAME_MAX];
+    std::string package_path = ros::package::getPath (ROS_PACKAGE_NAME);
+    ros::NodeHandle n_param ("~");
+
+    // **** get parameters
+    if (!n_param.getParam ("marker_pattern_list", path)) {
+        sprintf(pattern_filename, "%s/data/object_4x4", package_path.c_str());
+    } else {
+        sprintf(pattern_filename, "%s", path.c_str());
+    }
+    ROS_INFO ("Marker Pattern Filename: %s", pattern_filename);
+
+    // load in the object data - trained markers
+    int objectnum;
+    if ((object = ar_object::read_ObjData (pattern_filename, &objectnum)) == NULL)
+        ROS_BREAK ();
   }
 
   btTransform tfFromEigen(Eigen::Matrix4f trans)
@@ -125,7 +147,7 @@ class PclCorners {
     marker.push_back( makePoint(brx, bry, brz) );
     marker.push_back( makePoint(blx, bly, blz) );
 
-    float w = WIDTH;
+    float w = object[msg.id].marker_width;
 
     PointCloud ideal;
     ideal.push_back( makePoint(-w/2,w/2,0) ); 

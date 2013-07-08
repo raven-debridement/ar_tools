@@ -184,8 +184,6 @@ namespace ar_pose
     dataPtr = (ARUint8 *) capture_->imageData;
 #endif
 
-    ROS_INFO("trying to detect marker");
-
     // detect the markers in the video frame
     if (arDetectMarker (dataPtr, threshold_, &marker_info, &marker_num) < 0)
     {
