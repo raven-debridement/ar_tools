@@ -1,52 +1,55 @@
 #the number of patterns to be recognized
-8
+9
 
 #pattern 1
-4x4_10
-data/4x4/4x4_10.patt
-#5.23
-5.16
+4x4_95
+data/4x4/4x4_95.patt
+4.572
 0.0 0.0
 
 #pattern 2
-4x4_20
-data/4x4/4x4_20.patt
-#5.23
+4x4_89
+data/4x4/4x4_89.patt
 5.16
-0.0 0.0
-
-4x4_30
-data/4x4/4x4_30.patt
-#6.48
-6.10
-0.0 0.0
-
-4x4_40
-data/4x4/4x4_40.patt
-#6.48
-6.10
-0.0 0.0
-
-4x4_50
-data/4x4/4x4_50.patt
-10.53
-#10.84
 0.0 0.0
 
 4x4_60
 data/4x4/4x4_60.patt
+#6.48
+6.10
+0.0 0.0
+
+4x4_57
+data/4x4/4x4_57.patt
+#6.48
+6.10
+0.0 0.0
+
+4x4_78
+data/4x4/4x4_78.patt
 10.53
 #10.84
 0.0 0.0
 
-4x4_70
-data/4x4/4x4_70.patt
+4x4_48
+data/4x4/4x4_48.patt
 10.53
 #10.84
 0.0 0.0
 
-4x4_80
-data/4x4/4x4_80.patt
+4x4_45
+data/4x4/4x4_45.patt
 10.53
 #10.84
+0.0 0.0
+
+4x4_6
+data/4x4/4x4_6.patt
+10.53
+#10.84
+0.0 0.0
+
+4x4_3
+data/4x4/4x4_3.patt
+4.572
 0.0 0.0
